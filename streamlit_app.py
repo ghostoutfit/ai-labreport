@@ -10,16 +10,20 @@ from openai import OpenAI
 
 # --- Gmail Setup ---
 def load_credentials():
-    creds = Credentials.from_authorized_user_file('token.json', ['https://www.googleapis.com/auth/gmail.send'])
-    if not creds.valid and creds.refresh_token:
+    creds = Credentials(
+        token=None,
+        refresh_token=st.secrets["GOOGLE_REFRESH_TOKEN"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=st.secrets["GOOGLE_CLIENT_ID"],
+        client_secret=st.secrets["GOOGLE_CLIENT_SECRET"],
+        scopes=["https://www.googleapis.com/auth/gmail.send"],
+    )
+    if creds.expired or not creds.valid:
         creds.refresh(Request())
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
     return creds
 
 def send_email(to, subject, body_text):
-    cred
-    s = load_credentials()
+    creds = load_credentials()
     service = build('gmail', 'v1', credentials=creds)
 
     message = MIMEText(body_text)
