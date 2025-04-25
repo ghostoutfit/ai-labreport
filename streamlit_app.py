@@ -18,7 +18,8 @@ def load_credentials():
     return creds
 
 def send_email(to, subject, body_text):
-    creds = load_credentials()
+    cred
+    s = load_credentials()
     service = build('gmail', 'v1', credentials=creds)
 
     message = MIMEText(body_text)
