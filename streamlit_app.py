@@ -105,8 +105,8 @@ if st.session_state.mode == "input":
 
     names = st.text_input("0. What are your names?")
     research_question = st.text_area("1. What is your research question?")
-    evidence = st.text_area("2. List any key evidence that you found during the investigation:")
-    meaning = st.text_area("3. What do you think the evidence tells us about the research question?")
+    evidence = st.text_area("2. What did you find? List any key evidence that you found during the investigation:")
+    meaning = st.text_area("3. What does this mean? What do you think the evidence tells us about the research question?")
     teacher_email = st.text_input("4. What is your teacher's email address?")
 
     if st.button("Submit Answers"):
