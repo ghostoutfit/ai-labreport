@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 import os
+import random
 from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -42,6 +43,20 @@ try:
 except KeyError:
     st.error("❌ OPENAI_API_KEY not found. Please check your .streamlit/secrets.toml or environment variables.")
     st.stop()
+
+# --- Helper: Pick Random Names ---
+def pick_random_names(name_string, used_names, count=2):
+    names = [name.strip() for name in name_string.split(",") if name.strip()]
+    if len(names) < count:
+        return None, "This activity is meant for partners. Try to find at least one other person to work with."
+    available_names = [n for n in names if n not in used_names]
+    if len(available_names) < count:
+        available_names = names
+        used_names.clear()
+    chosen = random.sample(available_names, count)
+    for name in chosen:
+        used_names.add(name)
+    return chosen, None
 
 # --- AI Follow-Up Generator ---
 def generate_followup_question(initial_answers, history):
@@ -127,10 +142,7 @@ Follow-Up Questions:
 - Evidence Question: [question here]
 - Explanation Question: [question here]
 
-
 """
-    # --- removed [rubric-based reasoning] above ---
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -147,15 +159,21 @@ Follow-Up Questions:
 def create_summary(initial_answers, followup_history):
     summary = f"""Student Names: {initial_answers['names']}
 Research Question: {initial_answers['research_question']}
-Evidence Collected: {initial_answers['evidence']}
-Interpretation: {initial_answers['meaning']}
+Current Final Evidence: {initial_answers['evidence']}
+Current Final Interpretation: {initial_answers['meaning']}
+
+Initial Evidence Collected: {initial_answers['first_evidence']}
+Initial Interpretation: {initial_answers['first_meaning']}
 
 Follow-Up Discussion:
 """
     for idx, entry in enumerate(followup_history, start=1):
-        summary += f"\nQ{idx}: {entry['question']}\nA{idx}: {entry['answer']}\n"
-    
+        summary += f"\nQ{idx} Evidence for {entry['question']['evidence_person']}: {entry['question']['evidence_q']}\n"
+        summary += f"A{idx} Evidence: {entry['answer']['updated_evidence']}\n\n"
+        summary += f"Q{idx} Explanation for {entry['question']['explanation_person']}: {entry['question']['explanation_q']}\n"
+        summary += f"A{idx} Explanation: {entry['answer']['updated_meaning']}\n\n"
     return summary
+
 
 # --- Streamlit Front-End ---
 st.title("Lab Report Reflection")
@@ -175,21 +193,29 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Initialize Session State
+# --- Session State Initialization ---
 if "initial_answers" not in st.session_state:
     st.session_state.initial_answers = {}
 if "followup_history" not in st.session_state:
     st.session_state.followup_history = []
 if "mode" not in st.session_state:
     st.session_state.mode = "input"
+if "used_names" not in st.session_state:
+    st.session_state.used_names = set()
 
 # --- 1. Input Phase ---
 if st.session_state.mode == "input":
     st.subheader("Step 1: Fill in your investigation details")
 
-    names = st.text_input("0. What are your names?")
+    names = st.text_input("0. What are your names? (Separate with commas)")
+    
+    #Immediate group size check
+    name_list = [n.strip() for n in names.split(",") if n.strip()]
+    if len(name_list) < 2 and names:
+        st.warning("⚠️ This activity is meant for a group. Try to find more people to work with.")
+    
     research_question = st.text_area("1. What is your research question?")
-    evidence = st.text_area("2. What did you see or measure?  What key evidence did you collect that’s most relevant to the research question?")
+    evidence = st.text_area("2. What did you see or measure? List key evidence that helps answer the research question, plus context.")
     meaning = st.text_area("3. What might this mean? What can you figure out, based on this evidence?")
     teacher_email = st.text_input("4. What is your teacher's email address?")
 
@@ -203,9 +229,12 @@ if st.session_state.mode == "input":
                 "evidence": evidence,
                 "meaning": meaning,
                 "teacher_email": teacher_email,
+                "first_evidence": evidence,      # 🛠 NEW
+                "first_meaning": meaning         # 🛠 NEW
             }
             st.session_state.mode = "followup"
             st.rerun()
+
 
 # --- 2. Follow-Up Phase ---
 elif st.session_state.mode == "followup":
@@ -217,33 +246,41 @@ elif st.session_state.mode == "followup":
                 st.session_state.initial_answers, st.session_state.followup_history
             )
 
-    # Parse the follow-up into parts
     followup_parts = st.session_state.current_followup.split("Follow-Up Questions:")
     assessment_part = followup_parts[0].strip()
     questions_part = followup_parts[1].strip()
 
-    # Split the two follow-up questions
     lines = questions_part.split("\n")
     evidence_q = lines[0].replace("Evidence Question: ", "").strip()
     explanation_q = lines[1].replace("Explanation Question: ", "").strip()
 
-    # Show the Assessment Feedback
+    # Pick names
+    name_input = st.session_state.initial_answers.get("names", "")
+    chosen_names, error_msg = pick_random_names(name_input, st.session_state.used_names, count=2)
+
+    if error_msg:
+        st.warning(error_msg)
+        st.stop()
+
+    evidence_person = chosen_names[0]
+    explanation_person = chosen_names[1]
+
+    # Show assessment
     st.markdown("### 📋 AI Assessment of Your First Answers:")
     st.markdown(assessment_part)
 
-    # Editable sections
     st.markdown("### ✏️ Revise or Extend Your Thinking:")
 
-    st.markdown(f"**Evidence Follow-Up Question:** {evidence_q}")
+    st.markdown(f"**Evidence Follow-Up Question for {evidence_person}:** {evidence_q}")
     updated_evidence = st.text_area(
-        "Revise your Evidence based on the follow-up question:",
+        f"Revise your Evidence based on the question for {evidence_person}:",
         st.session_state.initial_answers['evidence'],
         key="updated_evidence"
     )
 
-    st.markdown(f"**Explanation Follow-Up Question:** {explanation_q}")
+    st.markdown(f"**Explanation Follow-Up Question for {explanation_person}:** {explanation_q}")
     updated_meaning = st.text_area(
-        "Revise your Meaning based on the follow-up question:",
+        f"Revise your Explanation based on the question for {explanation_person}:",
         st.session_state.initial_answers['meaning'],
         key="updated_meaning"
     )
@@ -257,14 +294,21 @@ elif st.session_state.mode == "followup":
                 st.session_state.followup_history.append({
                     "question": {
                         "evidence_q": evidence_q,
-                        "explanation_q": explanation_q
+                        "evidence_person": evidence_person,
+                        "explanation_q": explanation_q,
+                        "explanation_person": explanation_person
                     },
                     "answer": {
                         "updated_evidence": updated_evidence,
                         "updated_meaning": updated_meaning
                     }
                 })
-                # After revision, allow another reflection round OR move forward
+        
+                # 🛠 CRITICAL FIX: Update the "current" answers
+                st.session_state.initial_answers['evidence'] = updated_evidence
+                st.session_state.initial_answers['meaning'] = updated_meaning
+                
+                # Now generate the next follow-up question
                 st.session_state.current_followup = generate_followup_question(
                     {
                         "names": st.session_state.initial_answers["names"],
@@ -279,26 +323,44 @@ elif st.session_state.mode == "followup":
 
     with col2:
         if st.button("Finish and Send Summary"):
-            st.session_state.mode = "send_summary"
-            st.rerun()
+            if updated_evidence.strip() == "" or updated_meaning.strip() == "":
+                st.error("❌ Please complete both revised sections before submitting.")
+            else:
+                st.session_state.followup_history.append({
+                    "question": {
+                        "evidence_q": evidence_q,
+                        "evidence_person": evidence_person,
+                        "explanation_q": explanation_q,
+                        "explanation_person": explanation_person
+                    },
+                    "answer": {
+                        "updated_evidence": updated_evidence,
+                        "updated_meaning": updated_meaning
+                    }
+                })
+                # 🛠 CRITICAL: Update the "current" evidence and meaning
+                st.session_state.initial_answers['evidence'] = updated_evidence
+                st.session_state.initial_answers['meaning'] = updated_meaning
 
+                st.session_state.mode = "send_summary"
+                st.rerun()
 
 
 # --- 3. Email Sending Phase ---
 elif st.session_state.mode == "send_summary":
-    st.subheader("Step 3: Send your work to your teacher")
+    st.subheader("Step 3: Sending your work to your teacher...")
 
     email_body = create_summary(st.session_state.initial_answers, st.session_state.followup_history)
 
-    st.text_area("📋 Email Preview:", email_body, height=300)
+    try:
+        message_id = send_email(
+            st.session_state.initial_answers["teacher_email"],
+            subject="Lab Investigation Summary",
+            body_text=email_body
+        )
+        st.success(f"✅ Email sent successfully! Message ID: {message_id}")
+    except Exception as e:
+        st.error(f"❌ Failed to send email: {e}")
 
-    if st.button("Send Email Now"):
-        try:
-            message_id = send_email(
-                st.session_state.initial_answers["teacher_email"],
-                subject="Lab Investigation Summary",
-                body_text=email_body
-            )
-            st.success(f"✅ Email sent successfully! Message ID: {message_id}")
-        except Exception as e:
-            st.error(f"❌ Failed to send email: {e}")
+    st.info("You may now close this window.")
+
