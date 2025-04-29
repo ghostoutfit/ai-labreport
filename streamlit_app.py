@@ -22,6 +22,11 @@ def load_credentials():
         creds.refresh(Request())
     return creds
 
+
+
+
+
+
 def send_email(to, subject, body_text):
     creds = load_credentials()
     service = build('gmail', 'v1', credentials=creds)
@@ -36,6 +41,11 @@ def send_email(to, subject, body_text):
 
     sent = service.users().messages().send(userId='me', body=body).execute()
     return sent['id']
+
+
+
+
+
 
 # --- OpenAI Setup ---
 try:
@@ -56,6 +66,8 @@ def pick_random_names(name_string, used_names, count=2):
         used_names.add(name)
     return chosen, None
 
+
+# --- AI Follow-Up Generator ---
 def generate_followup_question(initial_answers, history):
     previous_qs = [h["question"] for h in history]
 
@@ -134,6 +146,28 @@ Follow-Up Questions:
         st.error(f"❌ Error generating follow-up assessment: {e}")
         st.stop()
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Email Summary Generator ---
 def create_summary(initial_answers, followup_history):
     summary = f"""Student Names: {initial_answers['names']}
 Research Question: {initial_answers['research_question']}
@@ -176,7 +210,6 @@ def submit_revisions():
 
     st.session_state.initial_answers["evidence"] = evidence
     st.session_state.initial_answers["meaning"] = meaning
-
     st.session_state.current_followup = generate_followup_question(
         {
             "names": st.session_state.initial_answers["names"],
@@ -273,6 +306,7 @@ if st.session_state.mode == "input":
     meaning = st.text_area("3. What might this mean? What can you figure out, based on this evidence?")
     teacher_email = st.text_input("4. What is your teacher's email address?")
 
+
     if st.button("Submit Answers"):
         if not (names and research_question and evidence and meaning and teacher_email):
             st.error("❌ Please fill out all fields before submitting.")
@@ -303,17 +337,21 @@ elif st.session_state.mode == "followup":
                 st.session_state.initial_answers, st.session_state.followup_history
             )
 
+    # Parse GPT response
     followup_parts = st.session_state.current_followup.split("Follow-Up Questions:")
+    if len(followup_parts) != 2:
+        st.error("❌ GPT output format error.")
+        st.stop()
+
     assessment_part = followup_parts[0].strip()
     questions_part = followup_parts[1].strip()
-
     lines = questions_part.split("\n")
     evidence_q = lines[0].replace("Evidence Question:", "").strip()
     explanation_q = lines[1].replace("Explanation Question:", "").strip()
 
+    # Assign partner names
     name_input = st.session_state.initial_answers.get("names", "")
     chosen_names, error_msg = pick_random_names(name_input, st.session_state.used_names, count=2)
-
     if error_msg:
         st.warning(error_msg)
         st.stop()
@@ -321,39 +359,67 @@ elif st.session_state.mode == "followup":
     evidence_person = chosen_names[0]
     explanation_person = chosen_names[1]
 
-    # Save current follow-up questions and assignment
     st.session_state.current_evidence_q = evidence_q
     st.session_state.current_explanation_q = explanation_q
     st.session_state.current_evidence_person = evidence_person
     st.session_state.current_explanation_person = explanation_person
 
+    # Initialize working draft ONCE
+    if "updated_evidence" not in st.session_state:
+        st.session_state.updated_evidence = st.session_state.initial_answers["evidence"]
+    if "updated_meaning" not in st.session_state:
+        st.session_state.updated_meaning = st.session_state.initial_answers["meaning"]
+
+    # Show Assessment + Follow-Ups
     st.markdown("### 📋 AI Assessment of Your Previous Answers:")
     st.markdown(assessment_part)
 
     st.markdown("### ✏️ Revise or Extend Your Thinking:")
 
     st.markdown(f"**Evidence Follow-Up Question for {evidence_person}:** {evidence_q}")
-    st.session_state.current_draft["evidence"] = st.text_area(
-        f"Revise your Evidence based on the question for {evidence_person}:",
-        value=st.session_state.current_draft.get("evidence", ""),
-        height=150
-    )
+    st.text_area("Revise your Evidence:", key="updated_evidence", height=150)
 
     st.markdown(f"**Explanation Follow-Up Question for {explanation_person}:** {explanation_q}")
-    st.session_state.current_draft["meaning"] = st.text_area(
-        f"Revise your Explanation based on the question for {explanation_person}:",
-        value=st.session_state.current_draft.get("meaning", ""),
-        height=150
-    )
+    st.text_area("Revise your Explanation:", key="updated_meaning", height=150)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.button("Submit Revisions", on_click=submit_revisions)
+        if st.button("Submit Revisions"):
+            evidence = st.session_state.updated_evidence
+            meaning = st.session_state.updated_meaning
+            if evidence.strip() == "" or meaning.strip() == "":
+                st.session_state.submit_error = "Please complete both revised sections before submitting."
+            else:
+                st.session_state.followup_history.append({
+                    "question": {
+                        "evidence_q": evidence_q,
+                        "evidence_person": evidence_person,
+                        "explanation_q": explanation_q,
+                        "explanation_person": explanation_person
+                    },
+                    "answer": {
+                        "updated_evidence": evidence,
+                        "updated_meaning": meaning
+                    }
+                })
+                st.session_state.initial_answers["evidence"] = evidence
+                st.session_state.initial_answers["meaning"] = meaning
+                st.session_state.current_followup = generate_followup_question(
+                    st.session_state.initial_answers,
+                    st.session_state.followup_history
+                )
+                st.rerun()
+
     with col2:
-        st.button("Finish and Send Summary", on_click=finish_and_send_summary)
+        if st.button("Finish and Send Summary"):
+            st.session_state.mode = "send_summary"
+            st.rerun()
 
     if st.session_state.submit_error:
         st.error(f"❌ {st.session_state.submit_error}")
+
+
+
 
 # --- Email Sending Phase ---
 elif st.session_state.mode == "send_summary":
