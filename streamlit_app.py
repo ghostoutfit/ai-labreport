@@ -23,10 +23,6 @@ def load_credentials():
     return creds
 
 
-
-
-
-
 def send_email(to, subject, body_text):
     creds = load_credentials()
     service = build('gmail', 'v1', credentials=creds)
@@ -41,9 +37,6 @@ def send_email(to, subject, body_text):
 
     sent = service.users().messages().send(userId='me', body=body).execute()
     return sent['id']
-
-
-
 
 
 
@@ -145,25 +138,6 @@ Follow-Up Questions:
     except Exception as e:
         st.error(f"❌ Error generating follow-up assessment: {e}")
         st.stop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -441,11 +415,8 @@ elif st.session_state.mode == "followup":
                 st.session_state.submit_error = None
                 st.rerun()
 
-
     if st.session_state.submit_error:
         st.error(f"❌ {st.session_state.submit_error}")
-
-
 
 
 # --- Email Sending Phase ---
