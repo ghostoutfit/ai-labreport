@@ -349,20 +349,25 @@ elif st.session_state.mode == "followup":
     evidence_q = lines[0].replace("Evidence Question:", "").strip()
     explanation_q = lines[1].replace("Explanation Question:", "").strip()
 
-    # Assign partner names
-    name_input = st.session_state.initial_answers.get("names", "")
-    chosen_names, error_msg = pick_random_names(name_input, st.session_state.used_names, count=2)
-    if error_msg:
-        st.warning(error_msg)
-        st.stop()
+    # Assign partner names ONLY if not already assigned
+    if "current_evidence_person" not in st.session_state or "current_explanation_person" not in st.session_state:
+        name_input = st.session_state.initial_answers.get("names", "")
+        chosen_names, error_msg = pick_random_names(name_input, st.session_state.used_names, count=2)
+        if error_msg:
+            st.warning(error_msg)
+            st.stop()
 
-    evidence_person = chosen_names[0]
-    explanation_person = chosen_names[1]
+        st.session_state.current_evidence_person = chosen_names[0]
+        st.session_state.current_explanation_person = chosen_names[1]
+    
+    evidence_person = st.session_state.current_evidence_person
+    explanation_person = st.session_state.current_explanation_person
 
+
+    # Always re-assign the questions from GPT (those change each round)
     st.session_state.current_evidence_q = evidence_q
     st.session_state.current_explanation_q = explanation_q
-    st.session_state.current_evidence_person = evidence_person
-    st.session_state.current_explanation_person = explanation_person
+
 
     # Initialize working draft ONCE
     if "updated_evidence" not in st.session_state:
@@ -412,8 +417,30 @@ elif st.session_state.mode == "followup":
 
     with col2:
         if st.button("Finish and Send Summary"):
-            st.session_state.mode = "send_summary"
-            st.rerun()
+            evidence = st.session_state.updated_evidence
+            meaning = st.session_state.updated_meaning
+
+            if evidence.strip() == "" or meaning.strip() == "":
+                st.session_state.submit_error = "Please complete both revised sections before submitting."
+            else:
+                st.session_state.followup_history.append({
+                    "question": {
+                        "evidence_q": evidence_q,
+                        "evidence_person": evidence_person,
+                        "explanation_q": explanation_q,
+                        "explanation_person": explanation_person
+                    },
+                    "answer": {
+                        "updated_evidence": evidence,
+                        "updated_meaning": meaning
+                    }
+                })
+                st.session_state.initial_answers["evidence"] = evidence
+                st.session_state.initial_answers["meaning"] = meaning
+                st.session_state.mode = "send_summary"
+                st.session_state.submit_error = None
+                st.rerun()
+
 
     if st.session_state.submit_error:
         st.error(f"❌ {st.session_state.submit_error}")
