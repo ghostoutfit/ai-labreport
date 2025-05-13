@@ -439,4 +439,11 @@ elif st.session_state.mode == "send_summary":
     except Exception as e:
         st.error(f"❌ Failed to send email: {e}")
 
+    # ✅ Always show the email summary
+    st.subheader("📬 Email Preview")
+    st.markdown(f"**To:** {st.session_state.initial_answers['teacher_email']}")
+    st.markdown("**Subject:** Lab Investigation Summary")
+    st.code(email_body, language="text")
+
     st.info("You may now close this window. Thanks for your hard work!")
+
