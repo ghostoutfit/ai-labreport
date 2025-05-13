@@ -432,7 +432,7 @@ elif st.session_state.mode == "send_summary":
     try:
         message_id = send_email(
             st.session_state.initial_answers["teacher_email"],
-            subject="Lab Investigation Summary",
+            subject=f"{st.session_state.initial_answers['names']} - Lab Investigation Summary",
             body_text=email_body
         )
         st.success(f"✅ Email sent successfully! Message ID: {message_id}")
