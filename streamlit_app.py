@@ -8,14 +8,18 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from openai import OpenAI
 
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+secrets = st.secrets["google_auth"]
+
 # --- Gmail Setup ---
 def load_credentials():
+    secrets = st.secrets["google_auth"]
     creds = Credentials(
         token=None,
-        refresh_token=st.secrets["GOOGLE_REFRESH_TOKEN"],
+        refresh_token=secrets["refresh_token"],
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=st.secrets["GOOGLE_CLIENT_ID"],
-        client_secret=st.secrets["GOOGLE_CLIENT_SECRET"],
+        client_id=secrets["client_id"],
+        client_secret=secrets["client_secret"],
         scopes=["https://www.googleapis.com/auth/gmail.send"],
     )
     if creds.expired or not creds.valid:
