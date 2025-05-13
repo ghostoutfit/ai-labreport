@@ -1,5 +1,6 @@
 .streamlit/secrets.toml
 token.json
+credentials.json
 
 
 # Byte-compiled / optimized / DLL files
