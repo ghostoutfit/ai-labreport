@@ -71,38 +71,17 @@ def generate_followup_question(initial_answers, history):
     prompt = f"""
 You are assessing student science investigation reflections using two rubrics:
 
-The research question for the investivation is: [research question]
-
-Here is some context for what students did during this investigation:
-Students plotted data about stars on a graph with temperature on the x-axis and light emitted on the y-axis. They noticed that many stars fall on a diagonal line: hotter stars emit more light. Some stars were unexpectedly bright for their temperature, or dimmer than expected. Students discussed how brightness as seen from Earth can be misleading if we don’t account for distance, because closer objects look brighter.
-
 Rubric 1: Presenting Evidence
 - 1 ("Getting There"): Lists what they saw, measured, or noticed; points to evidence but does not clearly connect it to the research question.
 - 2 ("Partial Solid"): Includes some relevant evidence, but descriptions are general OR misses patterns, contrasts, or possible relationships.
 - 3 ("Solid"): Presents a range of specific evidence clearly tied to the research question AND describes key patterns, contrasts, or cause-effect relationships.
 - 4 ("Excellent"): Selects specific, relevant evidence; describes patterns or relationships; AND highlights limitations, uncertainty, or suggests additional data that would improve clarity.
 
-Use the examples below as specific indicators of what counts as solid or excellent evidence in this investigation:
-- Key Patterns: Most stars fall on a line that goes from VERY hot and LOTS of light emitted to COOLER and LESS light emitted.  There is a relationship between light emitted and temperature: hotter means more light emitted.
-- Key Contrasts: Some cooler stars are still very bright. Some stars emit less light than others at the same temperature.
-- Limitations of Evidence: We aren't actually close to any of these stars, so we have to figure out how much light they put out. Some stars that put out less light look bright to us because they're close to Earth.
-- Additional Data: We didn't have data about objects that emit zero light, such as black holes.
-
 Rubric 2: Constructing an Explanation
 - 1 ("Getting There"): Says what they think the evidence means; suggests a reason but without clear logical flow.
 - 2 ("Partial Solid"): Begins to connect evidence to reasoning, but the logic is incomplete OR cause-effect ideas are missing or unclear.
 - 3 ("Solid"): Strings together a clear explanation that spells out cause-effect connections explcitly with mechanisms or clear reasoning. Answers the research question AND shows how evidence backs up the explanation through cause-and-effect.
 - 4 ("Excellent"): Builds a cause-effect explanation AND connects it to scientific ideas (energy flow, matter changes, or scale/quantity); recognizes gaps, limitations, or alternative explanations.
-
-Use the examples below as specific indicators of what counts as a solid or excellent explanation in this investigation:
-- Chain of Connected Ideas: “Hotter stars give off more energy, which makes them brighter. These stars have more matter inside, which means more fuel inside to burn and a stronger gravity to pull the star together."
-- Plausible Cause-Effect Thinking: "Hotter stars are burning more fuel, which causes more light to be emitted. This causes the outward pressure from the radiation to be stronger, and also causes stronger gravity pulling the star together."
-- Possible Gaps: "Some stars are not very hot, but very bright - this doesn't fit the pattern. Maybe these stars are very big so they are just putting out more light, or maybe they work with a different type of fusion that emits more light."
-
-A solid or excellent explanation will tie in some of the following scientific concepts:
-- Core Concepts: energy flow, matter changes,  nuclear fusion, light emission
-- Other Related Concepts: radiation, size/scale, gravity
-
 
 ---
 
@@ -111,10 +90,9 @@ Scoring Rules:
 - Give a range of possible scores, using half scores if needed.
 - Use the second person to refer to the student personally.
 - Be brief but clear: 1-2 sentences justifying each score, focusing only on the positive items completed.
-- Base your scoring on how well the student's answer matches the scoring criteria and specific examples for this investigation.
 
 Follow-Up Question Rules:
-- If either score is 1 or 2, start with a comment along the lines of: "This feedback is meant to guide you to immediately improve your work. Use these questions to guide your revision, then submit again."
+- If either score is 1 or 2, start with a comment along the lines of: "This feedback is meant to guide you to immediately improve your work. Use these questions to guide your revision, then submit."
 - If Evidence Score is 1 → Ask for more specific evidence, closely connected to the research question.
 - If Evidence Scores is 2 → Ask for patterns, contrasts, or clearer tie to research question.
 - If Evidence Score is 3 → Ask about uncertainty, limitations, or additional data that could strengthen the evidence.
@@ -123,9 +101,10 @@ Follow-Up Question Rules:
 - If Explanation Score is 2 → Ask for stronger cause-effect reasoning that ties evidence directly to the research question.
 - If Explanation Score is 3 → Ask for connection to scientific ideas (energy, matter, or scale) OR recognition of possible gaps or alternatives.
 - If Explanation Score is 4 → Ask for deeper particle-level reasoning OR critical evaluation of alternative explanations.
-- When asking for more specifics, you may refer to specific patterns, contrasts, cause-effect ideas, and scientific concepts from the examples, but never explain these directly. Instead, use questioning to point students' attention to them, so that students can include or explain themselves.
---
 
+All follow-up questions must be open-ended (cannot be answered "yes" or "no").
+
+---
 
 Now assess this new student:
 
@@ -152,7 +131,6 @@ Follow-Up Questions:
 - Evidence Question: [question here]
 - Explanation Question: [question here]
 """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -258,12 +236,12 @@ def finish_and_send_summary():
 
 
 # --- Streamlit Front-End ---
-st.set_page_config(page_title="Star Data Investigation", layout="wide")
-st.title("Star Data Investigation")
+st.set_page_config(page_title="Lab Report Reflection", layout="wide")
+st.title("Lab Report Reflection")
 
 # --- Rubric Display ---
 st.markdown("""
-### Rubrics: Present Evidence & Construct an Explanation
+### Rubrics for Reflection
 <small><i>Use these rubrics to guide your investigation answers and reflections:</i></small>
 
 <div style='font-size: 70%;'>
@@ -301,21 +279,7 @@ if st.session_state.mode == "input":
     if len(name_list) < 2 and names:
         st.warning("⚠️ This activity is meant for a group. Try to find more people to work with.")
     
-    research_question_options = [
-        "What can luminosity and temperature tell us about what’s going on inside stars?",
-        "Other (type your own)"
-    ]
-
-    selected_option = st.selectbox(
-        "1. What is your research question?",
-        research_question_options
-    )
-
-    if selected_option == "Other (type your own)":
-        research_question = st.text_input("Type your custom research question:")
-    else:
-        research_question = selected_option
-
+    research_question = st.text_area("1. What is your research question?")
     evidence = st.text_area("2. What did you see or measure? List key evidence that helps answer the research question, plus context.")
     meaning = st.text_area("3. What might this mean? What can you figure out, based on this evidence?")
     teacher_email = st.text_input("4. What is your teacher's email address?")
